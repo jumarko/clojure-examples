@@ -1,4 +1,4 @@
-(ns clojure-examples.deep-walking-macro)
+o(ns clojure-examples.deep-walking-macro)
 
 (comment
 
@@ -50,9 +50,15 @@
 (defmethod parse-sexpr 'do
   [[_ & body] ctx]
   {:type :do
-   :body (map (fn [x] (parse-item x ctx))
-              body)})
+   :body (doall (map (fn [x] (parse-item x ctx))
+              body)) })
 
+(defmethod parse-sexpr :default
+  [[f & body] ctx]
+  {:type :call
+   :fn (parse-item f ctx)
+   :args (doall (map (fn [x] (parse-item x ctx))
+                     body))})
 
 (defmethod parse-item :seq
   [form ctx]
@@ -61,6 +67,7 @@
 
 (defmethod parse-item :int
   [form ctx]
+  (swap! ctx inc)
   {:type :int
    :value form})
 
@@ -72,3 +79,15 @@
 (defmethod parse-item :nil
   [form ctx]
   {:type :nil})
+
+(defmacro to-ast [form]
+  (str (parse-item form (atom 0))))
+
+
+;;; Examples
+(parse-item '(+ 2 3) (atom 0))
+(parse-item '((comp pos? +) 2 3) (atom 0))
+(to-ast (+ 1 2))
+;; following form will throw CompilerException - unable to resolve symbol: x
+(to-ast (when x (if (< y 100) y-less y-greater)))
+(macroexpand '(to-ast (when x (if (< y 100) y-less y-greater))))
